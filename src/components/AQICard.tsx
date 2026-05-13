@@ -3,15 +3,38 @@ import { View, Text, StyleSheet } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { COLORS, getLevel } from '../data';
 
-interface Props { aqi: number; pm25: number }
+interface Props {
+  aqi:      number;
+  pm25:     number;
+  isSpike:  boolean;
+  delta:    number;
+  baseline: number;
+}
 
-export function AQICard({ aqi, pm25 }: Props) {
+export function AQICard({ aqi, pm25, isSpike, delta, baseline }: Props) {
   const level = getLevel(pm25);
 
+  // Teal (normal) vs Amber (spike) — matches paper description
+  const bgColor   = isSpike ? '#fffbeb' : '#ecfeff';
+  const accentColor = isSpike ? '#d97706' : '#0891b2';
+
   return (
-    <Animated.View entering={FadeInDown.duration(700).springify()} style={[styles.card, { borderColor: level.color + '30' }]}>
+    <Animated.View
+      entering={FadeInDown.duration(700).springify()}
+      style={[styles.card, { borderColor: accentColor + '30', backgroundColor: bgColor }]}
+    >
       {/* Top severity strip */}
-      <View style={[styles.strip, { backgroundColor: level.color }]} />
+      <View style={[styles.strip, { backgroundColor: isSpike ? '#d97706' : '#0891b2' }]} />
+
+      {/* Spike context message */}
+      {isSpike && (
+        <View style={styles.spikeBar}>
+          <Text style={styles.spikeEmoji}>⚠️</Text>
+          <Text style={styles.spikeText}>
+            +{delta} µg/m³ above baseline · {getLevel(pm25).label}
+          </Text>
+        </View>
+      )}
 
       <View style={styles.body}>
         {/* AQI */}
@@ -31,8 +54,15 @@ export function AQICard({ aqi, pm25 }: Props) {
           <Text style={styles.metaLabel}>PM2.5</Text>
           <Text style={[styles.bigNumber, { color: COLORS.spike }]}>{pm25}</Text>
           <Text style={styles.unit}>µg/m³</Text>
-          <Text style={styles.who}>WHO limit: 15</Text>
+          <Text style={styles.baseline}>Baseline: {baseline}</Text>
         </View>
+      </View>
+
+      {/* AQI scale bar: green → yellow → orange → red → purple → maroon */}
+      <View style={styles.scaleRow}>
+        {['#10b981','#f59e0b','#f97316','#ef4444','#7c3aed','#6E1A37'].map((c, i) => (
+          <View key={i} style={[styles.scaleBlock, { backgroundColor: c }]} />
+        ))}
       </View>
     </Animated.View>
   );
@@ -40,8 +70,7 @@ export function AQICard({ aqi, pm25 }: Props) {
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: COLORS.white,
-    borderRadius: 20,
+    borderRadius: 24,
     borderWidth: 1.5,
     overflow: 'hidden',
     shadowColor: '#000',
@@ -50,36 +79,68 @@ const styles = StyleSheet.create({
     shadowRadius: 16,
     elevation: 4,
   },
-  strip: { height: 5, width: '100%' },
+  strip: { height: 6 },
+  spikeBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#fef3c7',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    gap: 8,
+  },
+  spikeEmoji: { fontSize: 16 },
+  spikeText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#92400e',
+    flex: 1,
+  },
   body: {
     flexDirection: 'row',
-    padding: 24,
-    alignItems: 'center',
-    justifyContent: 'space-around',
+    paddingHorizontal: 20,
+    paddingVertical: 24,
   },
-  section: { alignItems: 'center', flex: 1 },
+  section: { flex: 1, alignItems: 'center' },
   metaLabel: {
     fontSize: 10,
     fontWeight: '700',
+    letterSpacing: 2,
     color: COLORS.slate400,
-    letterSpacing: 1.5,
     textTransform: 'uppercase',
-    marginBottom: 4,
+    marginBottom: 8,
   },
   bigNumber: {
     fontSize: 56,
     fontWeight: '900',
-    lineHeight: 64,
-    letterSpacing: -2,
+    lineHeight: 60,
   },
   badge: {
-    marginTop: 6,
     paddingHorizontal: 10,
-    paddingVertical: 3,
-    borderRadius: 999,
+    paddingVertical: 4,
+    borderRadius: 10,
+    marginTop: 8,
   },
-  badgeText: { fontSize: 11, fontWeight: '700', letterSpacing: 0.3 },
-  unit: { fontSize: 13, color: COLORS.slate500, fontWeight: '600', marginTop: 2 },
-  who: { fontSize: 10, color: COLORS.slate400, marginTop: 4 },
-  divider: { width: 1, height: 80, backgroundColor: COLORS.slate300 },
+  badgeText: { fontSize: 12, fontWeight: '800' },
+  divider: {
+    width: 1,
+    backgroundColor: COLORS.slate300,
+    marginVertical: 8,
+    alignSelf: 'stretch',
+  },
+  unit: {
+    fontSize: 13,
+    color: COLORS.slate500,
+    fontWeight: '600',
+    marginTop: 4,
+  },
+  baseline: {
+    fontSize: 11,
+    color: COLORS.slate400,
+    marginTop: 4,
+  },
+  scaleRow: {
+    flexDirection: 'row',
+    height: 6,
+  },
+  scaleBlock: { flex: 1 },
 });

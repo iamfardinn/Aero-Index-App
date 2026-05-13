@@ -6,6 +6,7 @@ import { useFonts, SpaceGrotesk_700Bold } from '@expo-google-fonts/space-grotesk
 import { Slot } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
+import { BLEProvider } from '@/context/BLEContext';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -23,8 +24,10 @@ export default function RootLayout() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
-        <StatusBar style="dark" />
-        <Slot />
+        <BLEProvider>
+          <StatusBar style="dark" />
+          <Slot />
+        </BLEProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>
   );
