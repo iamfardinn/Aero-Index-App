@@ -26,26 +26,45 @@ const DEFAULT_PAYLOAD: SensorPayload = {
   source: 'Heavy traffic / construction dust',
 };
 
-export type BLEStatus = 'idle' | 'scanning' | 'connected' | 'disconnected' | 'error';
+export type BLEStatus = 'idle' | 'scanning' | 'connected' | 'disconnected' | 'error' | 'unavailable';
 
 export interface BLEState {
-  status:      BLEStatus;
-  data:        SensorPayload;
-  isDemo:      boolean;  // true when using static demo data (not connected)
-  connect:     () => void;
-  disconnect:  () => void;
+  status:        BLEStatus;
+  data:          SensorPayload;
+  isDemo:        boolean;
+  connect:       () => void;
+  disconnect:    () => void;
   resetBaseline: () => void;
 }
 
-const manager = new BleManager();
+// Safe BleManager — returns null if native module not available (e.g. Expo Go)
+function createManager(): BleManager | null {
+  try {
+    return new BleManager();
+  } catch {
+    return null;
+  }
+}
 
 export function useBLE(): BLEState {
   const [status,  setStatus]  = useState<BLEStatus>('idle');
   const [data,    setData]    = useState<SensorPayload>(DEFAULT_PAYLOAD);
   const [isDemo,  setIsDemo]  = useState(true);
-  const deviceRef = useRef<Device | null>(null);
+  const deviceRef  = useRef<Device | null>(null);
+  // manager is created lazily and safely — null in Expo Go
+  const managerRef = useRef<BleManager | null>(null);
 
-  // ── Request Android permissions ────────────────────────────────────────────
+  useEffect(() => {
+    managerRef.current = createManager();
+    if (!managerRef.current) {
+      setStatus('unavailable');  // Expo Go / no native BLE module
+    }
+    return () => {
+      managerRef.current?.destroy();
+    };
+  }, []);
+
+  // ── Request Android permissions ─────────────────────────────────────────────
   const requestPermissions = useCallback(async (): Promise<boolean> => {
     if (Platform.OS !== 'android') return true;
     const apiLevel = parseInt(Platform.Version as string, 10);
@@ -65,7 +84,7 @@ export function useBLE(): BLEState {
     );
   }, []);
 
-  // ── Parse incoming BLE characteristic value ───────────────────────────────
+  // ── Parse incoming BLE characteristic value ──────────────────────────────────
   const handleNotification = useCallback((characteristic: Characteristic) => {
     if (!characteristic.value) return;
     try {
@@ -78,34 +97,32 @@ export function useBLE(): BLEState {
     }
   }, []);
 
-  // ── Connect ────────────────────────────────────────────────────────────────
+  // ── Connect ──────────────────────────────────────────────────────────────────
   const connect = useCallback(async () => {
+    if (!managerRef.current) return;  // BLE unavailable (Expo Go)
     const hasPerms = await requestPermissions();
     if (!hasPerms) { setStatus('error'); return; }
 
     setStatus('scanning');
-    manager.startDeviceScan(null, null, async (error, device) => {
+    managerRef.current.startDeviceScan(null, null, async (error, device) => {
       if (error) { setStatus('error'); return; }
       if (!device || device.name !== DEVICE_NAME) return;
 
-      manager.stopDeviceScan();
+      managerRef.current?.stopDeviceScan();
       try {
         const connected = await device.connect();
         await connected.discoverAllServicesAndCharacteristics();
         deviceRef.current = connected;
         setStatus('connected');
 
-        // Subscribe to sensor notifications
         connected.monitorCharacteristicForService(
-          SERVICE_UUID,
-          SENSOR_CHAR_UUID,
+          SERVICE_UUID, SENSOR_CHAR_UUID,
           (err, char) => {
             if (err) { setStatus('disconnected'); setIsDemo(true); return; }
             if (char) handleNotification(char);
           },
         );
 
-        // Handle disconnect
         connected.onDisconnected(() => {
           setStatus('disconnected');
           setIsDemo(true);
@@ -117,9 +134,9 @@ export function useBLE(): BLEState {
     });
   }, [requestPermissions, handleNotification]);
 
-  // ── Disconnect ─────────────────────────────────────────────────────────────
+  // ── Disconnect ───────────────────────────────────────────────────────────────
   const disconnect = useCallback(async () => {
-    manager.stopDeviceScan();
+    managerRef.current?.stopDeviceScan();
     if (deviceRef.current) {
       await deviceRef.current.cancelConnection();
       deviceRef.current = null;
@@ -128,24 +145,14 @@ export function useBLE(): BLEState {
     setIsDemo(true);
   }, []);
 
-  // ── Reset baseline (sends 'R' command over BLE) ───────────────────────────
+  // ── Reset baseline ───────────────────────────────────────────────────────────
   const resetBaseline = useCallback(async () => {
     if (!deviceRef.current) return;
     try {
-      const cmd = btoa('R');  // 'R' = reset command, matches firmware
       await deviceRef.current.writeCharacteristicWithResponseForService(
-        SERVICE_UUID,
-        COMMAND_CHAR_UUID,
-        cmd,
+        SERVICE_UUID, COMMAND_CHAR_UUID, btoa('R'),
       );
-    } catch {
-      // silently fail if not connected
-    }
-  }, []);
-
-  // ── Cleanup on unmount ────────────────────────────────────────────────────
-  useEffect(() => {
-    return () => { manager.destroy(); };
+    } catch { /* silently fail */ }
   }, []);
 
   return { status, data, isDemo, connect, disconnect, resetBaseline };
