@@ -1,10 +1,20 @@
-import { View, Text, ScrollView, StyleSheet } from 'react-native';
+import { useState } from 'react';
+import { View, ScrollView, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Header } from '@/components/Header';
+import { AQICard } from '@/components/AQICard';
+import { PM25Chart } from '@/components/PM25Chart';
+import { PMBadgeRow } from '@/components/PMBadgeRow';
+import { SpikeAlertBanner } from '@/components/SpikeAlertBanner';
+import { SourceCard } from '@/components/SourceCard';
 import { COLORS } from '@/data';
+
+const CURRENT_PM25 = 190;
+const CURRENT_AQI  = 240;
 
 export default function DashboardScreen() {
   const insets = useSafeAreaInsets();
+  const [chartWidth, setChartWidth] = useState(0);
 
   return (
     <View style={[styles.screen, { paddingTop: insets.top }]}>
@@ -13,52 +23,33 @@ export default function DashboardScreen() {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* AQI Card placeholder — Phase 3 */}
-        <View style={styles.placeholder}>
-          <Text style={styles.placeholderEmoji}>🌬️</Text>
-          <Text style={styles.placeholderTitle}>Dashboard</Text>
-          <Text style={styles.placeholderSub}>AQI card, chart & badges coming in Phase 3</Text>
+        {/* Alert banner */}
+        <SpikeAlertBanner />
+
+        {/* AQI hero card */}
+        <View style={styles.gap} />
+        <AQICard aqi={CURRENT_AQI} pm25={CURRENT_PM25} />
+
+        {/* Pollutant badges */}
+        <View style={styles.gap} />
+        <PMBadgeRow />
+
+        {/* PM2.5 Chart — measures its own width via onLayout */}
+        <View style={styles.gap} />
+        <View onLayout={(e) => setChartWidth(e.nativeEvent.layout.width)}>
+          {chartWidth > 0 && <PM25Chart width={chartWidth} />}
         </View>
+
+        {/* Source card */}
+        <View style={styles.gap} />
+        <SourceCard />
       </ScrollView>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  screen: {
-    flex: 1,
-    backgroundColor: COLORS.sky100,
-  },
-  scrollContent: {
-    padding: 20,
-    paddingBottom: 40,
-  },
-  placeholder: {
-    backgroundColor: COLORS.white,
-    borderRadius: 20,
-    padding: 40,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 12,
-    elevation: 3,
-  },
-  placeholderEmoji: {
-    fontSize: 48,
-    marginBottom: 12,
-  },
-  placeholderTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: COLORS.sky900,
-    marginBottom: 4,
-  },
-  placeholderSub: {
-    fontSize: 13,
-    color: COLORS.slate400,
-    textAlign: 'center',
-  },
+  screen: { flex: 1, backgroundColor: COLORS.sky100 },
+  scrollContent: { padding: 20, paddingBottom: 48 },
+  gap: { height: 16 },
 });

@@ -1,5 +1,6 @@
 // ─── Design Tokens ────────────────────────────────────────────────────────────
 
+
 export const COLORS = {
   spike: '#6E1A37',
   spikeLight: '#6E1A3710',
@@ -21,6 +22,21 @@ export const COLORS = {
   emerald600: '#059669',
   white: '#ffffff',
 };
+
+// ─── AQI / PM2.5 Severity Levels ─────────────────────────────────────────────
+
+export const PM25_LEVELS = [
+  { max: 12,    label: 'Good',           color: '#10b981', bg: '#ecfdf5' },
+  { max: 35.4,  label: 'Moderate',       color: '#f59e0b', bg: '#fffbeb' },
+  { max: 55.4,  label: 'Unhealthy (SG)', color: '#f97316', bg: '#fff7ed' },
+  { max: 150.4, label: 'Unhealthy',      color: '#ef4444', bg: '#fef2f2' },
+  { max: 250.4, label: 'Very Unhealthy', color: '#7c3aed', bg: '#f5f3ff' },
+  { max: 999,   label: 'Hazardous',      color: '#6E1A37', bg: '#6E1A3710' },
+];
+
+export function getLevel(pm25: number) {
+  return PM25_LEVELS.find(l => pm25 <= l.max) ?? PM25_LEVELS[PM25_LEVELS.length - 1];
+}
 
 export const FONTS = {
   spaceGrotesk: 'SpaceGrotesk_700Bold',
