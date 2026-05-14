@@ -23,8 +23,20 @@ function HistoryIcon({ color, size }: { color: string; size: number }) {
 
 // ─── Tab Navigator ───────────────────────────────────────────────────────────
 
+import { useAuth } from '@/context/AuthContext';
+import { Redirect } from 'expo-router';
+
 export default function TabsLayout() {
   const insets = useSafeAreaInsets();
+  const { user, isLoading } = useAuth();
+
+  // Show nothing while checking auth state to prevent flicker
+  if (isLoading) return null;
+
+  // If not logged in, force them to the login screen
+  if (!user) {
+    return <Redirect href="/login" />;
+  }
 
   return (
     <Tabs

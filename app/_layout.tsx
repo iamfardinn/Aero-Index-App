@@ -7,6 +7,7 @@ import { Slot } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { BLEProvider } from '@/context/BLEContext';
+import { AuthProvider } from '@/context/AuthContext';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -24,10 +25,12 @@ export default function RootLayout() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
-        <BLEProvider>
-          <StatusBar style="dark" />
-          <Slot />
-        </BLEProvider>
+        <AuthProvider>
+          <BLEProvider>
+            <StatusBar style="dark" />
+            <Slot />
+          </BLEProvider>
+        </AuthProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>
   );

@@ -10,6 +10,7 @@ import { SourceCard } from '@/components/SourceCard';
 import { SensorCard } from '@/components/SensorCard';
 import { COLORS } from '@/data';
 import { useBLEContext } from '@/context/BLEContext';
+import { auth } from '@/services/firebase';
 
 // AQI is approximated from PM2.5 (simplified US EPA formula for display)
 function pm25ToAqi(pm25: number): number {
@@ -54,6 +55,12 @@ export default function DashboardScreen() {
           <Text style={styles.bleBtnText}>
             {isConnected ? 'Disconnect' : isScanning ? 'Scanning…' : 'Connect'}
           </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          onPress={() => auth.signOut()}
+          style={[styles.bleBtn, { backgroundColor: '#ef4444' }]}
+        >
+          <Text style={styles.bleBtnText}>Sign Out</Text>
         </TouchableOpacity>
       </View>
 
