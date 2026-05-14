@@ -1,41 +1,49 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { Canvas, Path, Circle, LinearGradient, vec, Skia } from '@shopify/react-native-skia';
 import { useSharedValue, withTiming, Easing } from 'react-native-reanimated';
-import { COLORS, chartData } from '../data';
+import { COLORS } from '../data';
+import { SensorPayload } from '../services/useBLE';
 
 const CHART_H = 180;
 const PAD_H = 12;
 const PAD_V = 16;
-const DATA_MIN = 138;
-const DATA_MAX = 200;
 
-// Pick 5 evenly-spaced labels for X-axis
-const LABEL_INDICES = [0, 7, 14, 21, 29];
+interface Props {
+  width: number;
+  history: SensorPayload[];  // live rolling buffer from BLE
+}
 
-interface Props { width: number }
-
-export function PM25Chart({ width }: Props) {
+export function PM25Chart({ width, history }: Props) {
   const progress = useSharedValue(0);
 
   useEffect(() => {
-    progress.value = withTiming(1, { duration: 1800, easing: Easing.out(Easing.cubic) });
-  }, []);
+    progress.value = 0;
+    progress.value = withTiming(1, { duration: 1200, easing: Easing.out(Easing.cubic) });
+  }, [history.length]);
 
   const pts = useMemo(() => {
+    if (history.length < 2) return [];
+    const values = history.map(h => h.pm25);
+    const minVal = Math.min(...values);
+    const maxVal = Math.max(...values);
+    const range = maxVal - minVal || 1;
     const w = width - PAD_H * 2;
     const h = CHART_H - PAD_V * 2;
-    return chartData.map((p, i) => ({
-      x: PAD_H + (i / (chartData.length - 1)) * w,
-      y: PAD_V + (1 - (p.pm25 - DATA_MIN) / (DATA_MAX - DATA_MIN)) * h,
-      ...p,
+    return history.map((p, i) => ({
+      x: PAD_H + (i / (history.length - 1)) * w,
+      y: PAD_V + (1 - (p.pm25 - minVal) / range) * h,
+      pm25: p.pm25,
+      index: i,
     }));
-  }, [width]);
+  }, [history, width]);
 
   const { linePath, areaPath, peakPt } = useMemo(() => {
     const line = Skia.Path.Make();
     const area = Skia.Path.Make();
     const bottom = CHART_H - PAD_V;
+
+    if (pts.length < 2) return { linePath: line, areaPath: area, peakPt: null };
 
     pts.forEach((p, i) => {
       if (i === 0) { line.moveTo(p.x, p.y); area.moveTo(p.x, bottom); }
@@ -49,9 +57,11 @@ export function PM25Chart({ width }: Props) {
     return { linePath: line, areaPath: area, peakPt: peak };
   }, [pts]);
 
+  if (pts.length < 2) return null;
+
   return (
     <View style={styles.wrapper}>
-      <Text style={styles.title}>PM2.5 · 30-Minute Trend</Text>
+      <Text style={styles.title}>PM2.5 · Live Trend ({history.length} readings)</Text>
 
       {/* Chart canvas */}
       <Canvas style={{ width, height: CHART_H }}>
@@ -76,20 +86,22 @@ export function PM25Chart({ width }: Props) {
         />
 
         {/* Peak spike dot */}
-        <Circle cx={peakPt.x} cy={peakPt.y} r={6} color={COLORS.spike} />
-        <Circle cx={peakPt.x} cy={peakPt.y} r={3} color={COLORS.white} />
+        {peakPt && (
+          <>
+            <Circle cx={peakPt.x} cy={peakPt.y} r={6} color={COLORS.spike} />
+            <Circle cx={peakPt.x} cy={peakPt.y} r={3} color={COLORS.white} />
+          </>
+        )}
       </Canvas>
 
-      {/* X-axis labels */}
+      {/* X-axis: show first and last reading index */}
       <View style={[styles.xAxis, { width }]}>
-        {LABEL_INDICES.map(i => {
-          const p = pts[i];
-          return p ? (
-            <Text key={i} style={[styles.xLabel, { left: p.x - 16 }]}>
-              {chartData[i].time}
-            </Text>
-          ) : null;
-        })}
+        <Text style={[styles.xLabel, { left: PAD_H }]}>
+          #{1}
+        </Text>
+        <Text style={[styles.xLabel, { left: width - PAD_H - 32 }]}>
+          #{history.length}
+        </Text>
       </View>
     </View>
   );

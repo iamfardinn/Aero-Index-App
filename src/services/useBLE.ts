@@ -20,18 +20,12 @@ export interface SensorPayload {
   source:    string;
 }
 
-const DEFAULT_PAYLOAD: SensorPayload = {
-  pm25: 190, pm10: 210, temp: 28.5, humidity: 65,
-  isSpike: true, delta: 40, baseline: 150,
-  source: 'Heavy traffic / construction dust',
-};
-
 export type BLEStatus = 'idle' | 'scanning' | 'connected' | 'disconnected' | 'error' | 'unavailable';
 
 export interface BLEState {
   status:        BLEStatus;
-  data:          SensorPayload;
-  isDemo:        boolean;
+  data:          SensorPayload | null;   // null = no real data yet
+  history:       SensorPayload[];        // live rolling history buffer
   connect:       () => void;
   disconnect:    () => void;
   resetBaseline: () => void;
@@ -48,8 +42,8 @@ function createManager(): BleManager | null {
 
 export function useBLE(): BLEState {
   const [status,  setStatus]  = useState<BLEStatus>('idle');
-  const [data,    setData]    = useState<SensorPayload>(DEFAULT_PAYLOAD);
-  const [isDemo,  setIsDemo]  = useState(true);
+  const [data,    setData]    = useState<SensorPayload | null>(null);
+  const [history, setHistory] = useState<SensorPayload[]>([]);
   const deviceRef  = useRef<Device | null>(null);
   // manager is created lazily and safely — null in Expo Go
   const managerRef = useRef<BleManager | null>(null);
@@ -91,7 +85,11 @@ export function useBLE(): BLEState {
       const json = atob(characteristic.value);
       const payload: SensorPayload = JSON.parse(json);
       setData(payload);
-      setIsDemo(false);
+      // Keep a rolling buffer of last 30 readings for the chart
+      setHistory(prev => {
+        const next = [...prev, payload];
+        return next.length > 30 ? next.slice(next.length - 30) : next;
+      });
     } catch {
       // ignore malformed packets
     }
@@ -118,14 +116,14 @@ export function useBLE(): BLEState {
         connected.monitorCharacteristicForService(
           SERVICE_UUID, SENSOR_CHAR_UUID,
           (err, char) => {
-            if (err) { setStatus('disconnected'); setIsDemo(true); return; }
+            if (err) { setStatus('disconnected'); setData(null); return; }
             if (char) handleNotification(char);
           },
         );
 
         connected.onDisconnected(() => {
           setStatus('disconnected');
-          setIsDemo(true);
+          setData(null);
           deviceRef.current = null;
         });
       } catch {
@@ -142,7 +140,8 @@ export function useBLE(): BLEState {
       deviceRef.current = null;
     }
     setStatus('idle');
-    setIsDemo(true);
+    setData(null);
+    setHistory([]);
   }, []);
 
   // ── Reset baseline ───────────────────────────────────────────────────────────
@@ -155,5 +154,5 @@ export function useBLE(): BLEState {
     } catch { /* silently fail */ }
   }, []);
 
-  return { status, data, isDemo, connect, disconnect, resetBaseline };
+  return { status, data, history, connect, disconnect, resetBaseline };
 }

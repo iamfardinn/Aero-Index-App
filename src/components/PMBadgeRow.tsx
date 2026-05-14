@@ -3,23 +3,39 @@ import { View, Text, ScrollView, StyleSheet, TouchableOpacity } from 'react-nati
 import Animated, { FadeInRight } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 import { COLORS } from '../data';
+import { SensorPayload } from '../services/useBLE';
 
-const BADGES = [
-  { label: 'PM2.5', value: '190', unit: 'µg/m³', color: COLORS.spike },
-  { label: 'PM10',  value: '215', unit: 'µg/m³', color: '#ef4444' },
-  { label: 'CO₂',   value: '412', unit: 'ppm',    color: '#f97316' },
-  { label: 'Humid', value: '68',  unit: '%',       color: COLORS.sky500 },
-  { label: 'Temp',  value: '32',  unit: '°C',      color: '#f59e0b' },
-];
+interface BadgeDef {
+  label: string;
+  value: string;
+  unit: string;
+  color: string;
+}
 
-export function PMBadgeRow() {
+function buildBadges(data: SensorPayload): BadgeDef[] {
+  return [
+    { label: 'PM2.5', value: data.pm25.toFixed(1),     unit: 'µg/m³', color: COLORS.spike },
+    { label: 'PM10',  value: data.pm10.toFixed(1),     unit: 'µg/m³', color: '#ef4444' },
+    { label: 'Temp',  value: data.temp.toFixed(1),     unit: '°C',     color: '#f59e0b' },
+    { label: 'Humid', value: data.humidity.toFixed(0), unit: '%',      color: COLORS.sky500 },
+    { label: 'Delta', value: `+${data.delta}`,         unit: 'µg/m³', color: '#f97316' },
+  ];
+}
+
+interface Props {
+  data: SensorPayload;
+}
+
+export function PMBadgeRow({ data }: Props) {
+  const badges = buildBadges(data);
+
   return (
     <ScrollView
       horizontal
       showsHorizontalScrollIndicator={false}
       contentContainerStyle={styles.row}
     >
-      {BADGES.map((b, i) => (
+      {badges.map((b, i) => (
         <Animated.View key={b.label} entering={FadeInRight.delay(i * 80).duration(400)}>
           <TouchableOpacity
             activeOpacity={0.8}

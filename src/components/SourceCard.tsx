@@ -1,10 +1,15 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import Animated, { FadeInUp } from 'react-native-reanimated';
-import { COLORS, historyLog } from '../data';
+import { COLORS, getLevel } from '../data';
+import { SensorPayload } from '../services/useBLE';
 
-export function SourceCard() {
-  const latest = historyLog[0];
+interface Props {
+  data: SensorPayload;
+}
+
+export function SourceCard({ data }: Props) {
+  const level = getLevel(data.pm25);
 
   return (
     <Animated.View entering={FadeInUp.delay(300).duration(600).springify()} style={styles.card}>
@@ -12,7 +17,7 @@ export function SourceCard() {
         <Text style={styles.icon}>🏭</Text>
         <View style={styles.headerText}>
           <Text style={styles.label}>IDENTIFIED SOURCE</Text>
-          <Text style={styles.source}>{latest.source}</Text>
+          <Text style={styles.source}>{data.source || 'Unknown source'}</Text>
         </View>
       </View>
 
@@ -21,15 +26,15 @@ export function SourceCard() {
       <View style={styles.stats}>
         <View style={styles.stat}>
           <Text style={styles.statLabel}>Delta</Text>
-          <Text style={[styles.statValue, { color: COLORS.spike }]}>↑ +{latest.delta} µg/m³</Text>
+          <Text style={[styles.statValue, { color: COLORS.spike }]}>↑ +{data.delta} µg/m³</Text>
         </View>
         <View style={styles.stat}>
           <Text style={styles.statLabel}>Level</Text>
-          <Text style={[styles.statValue, { color: COLORS.spike }]}>{latest.level}</Text>
+          <Text style={[styles.statValue, { color: level.color }]}>{level.label}</Text>
         </View>
         <View style={styles.stat}>
-          <Text style={styles.statLabel}>Recorded</Text>
-          <Text style={styles.statValue}>{latest.time}</Text>
+          <Text style={styles.statLabel}>Baseline</Text>
+          <Text style={styles.statValue}>{data.baseline} µg/m³</Text>
         </View>
       </View>
     </Animated.View>

@@ -25,10 +25,13 @@ export default function DashboardScreen() {
   const insets   = useSafeAreaInsets();
   const router   = useRouter();
   const [chartWidth, setChartWidth] = useState(0);
-  const { status, data, isDemo, connect, disconnect, resetBaseline } = useBLEContext();
+  const { status, data, history, connect, disconnect, resetBaseline } = useBLEContext();
 
-  const aqi = pm25ToAqi(data.pm25);
   const isConnected = status === 'connected';
+  const isScanning  = status === 'scanning';
+  const hasData     = data !== null;
+
+  const aqi = hasData ? pm25ToAqi(data!.pm25) : 0;
 
   return (
     <View style={[styles.screen, { paddingTop: insets.top }]}>
@@ -37,112 +40,135 @@ export default function DashboardScreen() {
       {/* BLE Connection bar */}
       <View style={[styles.bleBar, isConnected ? styles.bleConnected : styles.bleDisconnected]}>
         <Text style={styles.bleBarText}>
-          {status === 'scanning'    ? '🔍 Scanning for AeroContext device…'  :
-           isConnected              ? '🟢 Connected to AeroContext'           :
-           status === 'error'       ? '❌ Connection failed — tap to retry'  :
-                                      '⚪ Demo mode — tap to connect ESP32'}
+          {isScanning   ? '🔍 Scanning for AeroContext device…'  :
+           isConnected  ? '🟢 Connected to AeroContext'           :
+           status === 'error'      ? '❌ Connection failed — tap to retry'  :
+           status === 'unavailable'? '⚠️ BLE unavailable (Expo Go build)'   :
+                                     '⚪ Not connected — tap Connect'}
         </Text>
         <TouchableOpacity
           onPress={isConnected ? disconnect : connect}
-          style={styles.bleBtn}
+          style={[styles.bleBtn, isScanning && styles.bleBtnScanning]}
+          disabled={isScanning}
         >
           <Text style={styles.bleBtnText}>
-            {isConnected ? 'Disconnect' : 'Connect'}
+            {isConnected ? 'Disconnect' : isScanning ? 'Scanning…' : 'Connect'}
           </Text>
         </TouchableOpacity>
       </View>
 
-      <ScrollView
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-      >
-        {/* Spike alert banner — tappable → detail screen */}
-        {data.isSpike && (
-          <TouchableOpacity
-            style={styles.spikeBanner}
-            activeOpacity={0.8}
-            onPress={() => router.push({
-              pathname: '/alert-detail',
-              params: {
-                pm25:     String(data.pm25),
-                delta:    String(data.delta),
-                baseline: String(data.baseline),
-                source:   data.source,
-                time:     'Just now',
-              },
-            })}
-          >
-            <Text style={styles.spikeBannerText}>
-              ⚠️  Spike detected! +{data.delta} µg/m³ — {data.source}
-            </Text>
-            <Text style={styles.spikeBannerCta}>View details →</Text>
-          </TouchableOpacity>
-        )}
-
-        {/* AQI hero card */}
-        <View style={styles.gap} />
-        <AQICard
-          aqi={aqi}
-          pm25={data.pm25}
-          isSpike={data.isSpike}
-          delta={data.delta}
-          baseline={data.baseline}
-        />
-
-        {/* Secondary sensor cards: temp + humidity */}
-        <View style={styles.gap} />
-        <View style={styles.sensorRow}>
-          <SensorCard
-            label="Temperature"
-            value={data.temp.toFixed(1)}
-            unit="°C"
-            emoji="🌡️"
-            delay={0}
-          />
-          <View style={{ width: 12 }} />
-          <SensorCard
-            label="Humidity"
-            value={data.humidity.toFixed(0)}
-            unit="%"
-            emoji="💧"
-            delay={80}
-            warn={data.humidity > 70}  // high humidity skews PMS7003 readings
-          />
+      {/* ── No data state ── */}
+      {!hasData ? (
+        <View style={styles.emptyContainer}>
+          <Text style={styles.emptyIcon}>📡</Text>
+          <Text style={styles.emptyTitle}>No Sensor Data</Text>
+          <Text style={styles.emptySubtitle}>
+            {isScanning
+              ? 'Searching for your AeroContext device…'
+              : 'Connect to your ESP32 via Bluetooth\nto see live air quality readings.'}
+          </Text>
+          {!isConnected && !isScanning && (
+            <TouchableOpacity style={styles.connectBtn} onPress={connect}>
+              <Text style={styles.connectBtnText}>Connect to ESP32</Text>
+            </TouchableOpacity>
+          )}
+          {isScanning && (
+            <View style={styles.scanningDots}>
+              <Text style={styles.scanningText}>Looking for "AeroContext"…</Text>
+            </View>
+          )}
         </View>
-
-        {/* Pollutant badges */}
-        <View style={styles.gap} />
-        <PMBadgeRow />
-
-        {/* PM2.5 Chart */}
-        <View style={styles.gap} />
-        <View onLayout={(e) => setChartWidth(e.nativeEvent.layout.width)}>
-          {chartWidth > 0 && <PM25Chart width={chartWidth} />}
-        </View>
-
-        {/* Source card */}
-        <View style={styles.gap} />
-        <SourceCard />
-
-        {/* Recalibration button */}
-        <View style={styles.gap} />
-        <TouchableOpacity
-          style={[styles.recalBtn, !isConnected && styles.recalBtnDisabled]}
-          onPress={resetBaseline}
-          disabled={!isConnected}
+      ) : (
+        /* ── Live data dashboard ── */
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
         >
-          <Text style={styles.recalBtnText}>
-            🔄  Reset Baseline
-          </Text>
-          <Text style={styles.recalBtnSub}>
-            {isConnected
-              ? 'Clears buffer and restarts adaptive baseline'
-              : 'Connect to device to reset baseline'}
-          </Text>
-        </TouchableOpacity>
+          {/* Spike alert banner — tappable → detail screen */}
+          {data!.isSpike && (
+            <TouchableOpacity
+              style={styles.spikeBanner}
+              activeOpacity={0.8}
+              onPress={() => router.push({
+                pathname: '/alert-detail',
+                params: {
+                  pm25:     String(data!.pm25),
+                  delta:    String(data!.delta),
+                  baseline: String(data!.baseline),
+                  source:   data!.source,
+                  time:     'Just now',
+                },
+              })}
+            >
+              <Text style={styles.spikeBannerText}>
+                ⚠️  Spike detected! +{data!.delta} µg/m³ — {data!.source}
+              </Text>
+              <Text style={styles.spikeBannerCta}>View details →</Text>
+            </TouchableOpacity>
+          )}
 
-        <View style={{ height: 40 }} />
-      </ScrollView>
+          {/* AQI hero card */}
+          <View style={styles.gap} />
+          <AQICard
+            aqi={aqi}
+            pm25={data!.pm25}
+            isSpike={data!.isSpike}
+            delta={data!.delta}
+            baseline={data!.baseline}
+          />
+
+          {/* Secondary sensor cards: temp + humidity */}
+          <View style={styles.gap} />
+          <View style={styles.sensorRow}>
+            <SensorCard
+              label="Temperature"
+              value={data!.temp.toFixed(1)}
+              unit="°C"
+              emoji="🌡️"
+              delay={0}
+            />
+            <View style={{ width: 12 }} />
+            <SensorCard
+              label="Humidity"
+              value={data!.humidity.toFixed(0)}
+              unit="%"
+              emoji="💧"
+              delay={80}
+              warn={data!.humidity > 70}
+            />
+          </View>
+
+          {/* Pollutant badges */}
+          <View style={styles.gap} />
+          <PMBadgeRow data={data!} />
+
+          {/* PM2.5 Chart — only shown once we have 2+ readings */}
+          {history.length >= 2 && (
+            <>
+              <View style={styles.gap} />
+              <View onLayout={(e) => setChartWidth(e.nativeEvent.layout.width)}>
+                {chartWidth > 0 && <PM25Chart width={chartWidth} history={history} />}
+              </View>
+            </>
+          )}
+
+          {/* Source card */}
+          <View style={styles.gap} />
+          <SourceCard data={data!} />
+
+          {/* Recalibration button */}
+          <View style={styles.gap} />
+          <TouchableOpacity
+            style={styles.recalBtn}
+            onPress={resetBaseline}
+          >
+            <Text style={styles.recalBtnText}>🔄  Reset Baseline</Text>
+            <Text style={styles.recalBtnSub}>Clears buffer and restarts adaptive baseline</Text>
+          </TouchableOpacity>
+
+          <View style={{ height: 40 }} />
+        </ScrollView>
+      )}
     </View>
   );
 }
@@ -166,7 +192,42 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     marginLeft: 8,
   },
+  bleBtnScanning: { backgroundColor: COLORS.slate400 },
   bleBtnText: { color: COLORS.white, fontSize: 12, fontWeight: '700' },
+
+  // ── Empty / no-data state ──
+  emptyContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 40,
+    gap: 12,
+  },
+  emptyIcon: { fontSize: 72, marginBottom: 8 },
+  emptyTitle: {
+    fontSize: 24,
+    fontWeight: '900',
+    color: COLORS.sky900,
+    letterSpacing: -0.5,
+  },
+  emptySubtitle: {
+    fontSize: 15,
+    color: COLORS.slate500,
+    textAlign: 'center',
+    lineHeight: 22,
+  },
+  connectBtn: {
+    marginTop: 12,
+    backgroundColor: COLORS.sky900,
+    paddingHorizontal: 28,
+    paddingVertical: 14,
+    borderRadius: 14,
+  },
+  connectBtnText: { color: COLORS.white, fontWeight: '800', fontSize: 15 },
+  scanningDots: { marginTop: 8 },
+  scanningText: { color: COLORS.slate400, fontSize: 13, fontWeight: '600' },
+
+  // ── Dashboard ──
   scrollContent: { padding: 20, paddingBottom: 48 },
   spikeBanner: {
     backgroundColor: '#fef3c7',
@@ -198,7 +259,6 @@ const styles = StyleSheet.create({
     padding: 18,
     alignItems: 'center',
   },
-  recalBtnDisabled: { backgroundColor: COLORS.slate400 },
   recalBtnText: {
     color: COLORS.white,
     fontWeight: '800',
