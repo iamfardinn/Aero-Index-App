@@ -21,6 +21,14 @@ function HistoryIcon({ color, size }: { color: string; size: number }) {
   );
 }
 
+function ProfileIcon({ color, size }: { color: string; size: number }) {
+  return (
+    <View style={[styles.iconBox, { width: size, height: size, borderColor: color, borderRadius: size / 2 }]}>
+      <View style={[styles.iconDot, { backgroundColor: color, width: size * 0.4, height: size * 0.4, borderRadius: size * 0.2 }]} />
+    </View>
+  );
+}
+
 // ─── Tab Navigator ───────────────────────────────────────────────────────────
 
 import { useAuth } from '@/context/AuthContext';
@@ -72,6 +80,13 @@ export default function TabsLayout() {
         options={{
           title: 'History',
           tabBarIcon: ({ color, size }) => <HistoryIcon color={color} size={size} />,
+        }}
+      />
+      <Tabs.Screen
+        name="profile"
+        options={{
+          title: 'Profile',
+          tabBarIcon: ({ color, size }) => <ProfileIcon color={color} size={size} />,
         }}
       />
     </Tabs>
