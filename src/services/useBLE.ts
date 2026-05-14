@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Platform, PermissionsAndroid } from 'react-native';
 import { BleManager, Device, Characteristic } from 'react-native-ble-plx';
+import { auth, db } from './firebase';
 
 // ─── BLE UUIDs (must match ESP32-C3 firmware) ─────────────────────────────────
 export const SERVICE_UUID      = '4fafc201-1fb5-459e-8fcc-c5c9c331914b';
@@ -79,17 +80,50 @@ export function useBLE(): BLEState {
   }, []);
 
   // ── Parse incoming BLE characteristic value ──────────────────────────────────
-  const handleNotification = useCallback((characteristic: Characteristic) => {
+  const wasSpikeRef = useRef(false);
+
+  const handleNotification = useCallback(async (characteristic: Characteristic) => {
     if (!characteristic.value) return;
     try {
       const json = atob(characteristic.value);
       const payload: SensorPayload = JSON.parse(json);
       setData(payload);
+      
       // Keep a rolling buffer of last 30 readings for the chart
       setHistory(prev => {
         const next = [...prev, payload];
         return next.length > 30 ? next.slice(next.length - 30) : next;
       });
+
+      // ── Auto-save spike to Firestore ──
+      // Only log it ONCE when the spike first starts, to prevent spamming the database
+      if (payload.isSpike && !wasSpikeRef.current) {
+        const user = auth.currentUser;
+        if (user) {
+          const { collection, addDoc, serverTimestamp } = await import('firebase/firestore');
+          
+          // Use our helper to get the readable level
+          let levelStr = 'Unknown';
+          if (payload.pm25 > 250.4) levelStr = 'Hazardous';
+          else if (payload.pm25 > 150.4) levelStr = 'Very Unhealthy';
+          else if (payload.pm25 > 55.4) levelStr = 'Unhealthy';
+          
+          await addDoc(collection(db, 'history'), {
+            userId: user.uid,
+            timestamp: serverTimestamp(),
+            // Format time nicely for the UI (e.g. "Today · 14:30")
+            time: `Today · ${new Date().getHours().toString().padStart(2, '0')}:${new Date().getMinutes().toString().padStart(2, '0')}`,
+            source: payload.source || 'Unknown source',
+            delta: payload.delta,
+            level: levelStr,
+            pm25: payload.pm25
+          });
+        }
+      }
+      
+      // Update the ref so we know if the spike is still ongoing
+      wasSpikeRef.current = payload.isSpike;
+
     } catch {
       // ignore malformed packets
     }
