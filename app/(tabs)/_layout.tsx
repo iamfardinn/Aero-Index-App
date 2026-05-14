@@ -1,5 +1,6 @@
 import { Tabs } from 'expo-router';
 import { View, Text, StyleSheet } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { COLORS } from '@/data';
 
 // ─── Minimal SVG-free tab icons ──────────────────────────────────────────────
@@ -23,6 +24,8 @@ function HistoryIcon({ color, size }: { color: string; size: number }) {
 // ─── Tab Navigator ───────────────────────────────────────────────────────────
 
 export default function TabsLayout() {
+  const insets = useSafeAreaInsets();
+
   return (
     <Tabs
       screenOptions={{
@@ -30,8 +33,8 @@ export default function TabsLayout() {
         tabBarStyle: {
           backgroundColor: COLORS.sky900,
           borderTopWidth: 0,
-          height: 64,
-          paddingBottom: 8,
+          height: 60 + insets.bottom,
+          paddingBottom: 8 + insets.bottom,
           paddingTop: 8,
           elevation: 0,
           shadowOpacity: 0,
