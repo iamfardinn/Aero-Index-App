@@ -34,6 +34,9 @@ The app is designed to pair with the **AeroContext ESP32 Firmware**.
 
 ## Installation & Local Development
 
+### Direct Download (Pre-compiled APK)
+If you simply want to test the app without building from source, you can download the latest pre-compiled Android `.apk` file directly from the [GitHub Releases](https://github.com/iamfardinn/Aero-Index-App/releases) page. Install the APK and ensure that **Bluetooth** and **Location Services** are enabled on your device.
+
 ### 1. Prerequisites
 - Node.js (v18+)
 - Expo CLI
