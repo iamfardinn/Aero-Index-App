@@ -4,13 +4,13 @@ import { getFirestore } from 'firebase/firestore';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const firebaseConfig = {
-  apiKey: "AIzaSyCb99AS-UIstBI6iGpA-GntCeZRHqecIsA",
-  authDomain: "aerocontext.firebaseapp.com",
-  projectId: "aerocontext",
-  storageBucket: "aerocontext.firebasestorage.app",
-  messagingSenderId: "832101700685",
-  appId: "1:832101700685:web:ab876812fe1b7355b67804",
-  measurementId: "G-E96DSY59RB"
+  apiKey: process.env.EXPO_PUBLIC_FIREBASE_API_KEY,
+  authDomain: process.env.EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN,
+  projectId: process.env.EXPO_PUBLIC_FIREBASE_PROJECT_ID,
+  storageBucket: process.env.EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: process.env.EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+  appId: process.env.EXPO_PUBLIC_FIREBASE_APP_ID,
+  measurementId: process.env.EXPO_PUBLIC_FIREBASE_MEASUREMENT_ID
 };
 
 // Initialize Firebase only if it hasn't been initialized yet (fixes Fast Refresh crashes)
