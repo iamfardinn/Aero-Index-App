@@ -133,11 +133,19 @@ export function useBLE(): BLEState {
   const connect = useCallback(async () => {
     if (!managerRef.current) return;  // BLE unavailable (Expo Go)
     const hasPerms = await requestPermissions();
-    if (!hasPerms) { setStatus('error'); return; }
+    if (!hasPerms) { 
+      console.error('BLE Permissions denied');
+      setStatus('error'); 
+      return; 
+    }
 
     setStatus('scanning');
     managerRef.current.startDeviceScan(null, null, async (error, device) => {
-      if (error) { setStatus('error'); return; }
+      if (error) { 
+        console.error('BLE Scan Error:', error);
+        setStatus('error'); 
+        return; 
+      }
       if (!device || device.name !== DEVICE_NAME) return;
 
       managerRef.current?.stopDeviceScan();
@@ -160,7 +168,8 @@ export function useBLE(): BLEState {
           setData(null);
           deviceRef.current = null;
         });
-      } catch {
+      } catch (err) {
+        console.error('BLE Connection Error:', err);
         setStatus('error');
       }
     });
